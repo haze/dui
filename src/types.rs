@@ -2,7 +2,10 @@
 use serde_json;
 use serde_derive;
 use std::error::Error;
-
+use std::sync::Arc;
+use discord;
+use discord::model;
+use std::collections::HashMap;
 
 // located at ~/.duirc
 #[derive(Serialize, Deserialize)]
@@ -55,5 +58,60 @@ impl UserConfiguration {
 
     pub fn from_json(json: String) -> Result<UserConfiguration, serde_json::Error> {
         serde_json::from_str(&*json)
+    }
+}
+
+pub struct Architecture {
+    servers: HashMap<model::ServerId, Vec<model::PublicChannel>>,
+    discord: Arc<discord::Discord>,
+    current_server: Option<model::ServerId>,
+}
+
+impl Architecture {
+    pub fn set_servers(&mut self, map: HashMap<model::ServerId, Vec<model::PublicChannel>>) {
+        self.servers = map;
+    }
+
+    pub fn new(discord: Arc<discord::Discord>) -> Architecture {
+        Architecture {
+            discord,
+            servers: HashMap::new(),
+            current_server: None
+        }
+    }
+
+    pub fn get_current_server_display(&self) -> String {
+        match self.get_current_server() {
+            Some(serv) => serv.name,
+            None => String::new()
+        }
+    }
+
+    pub fn display_servers(&self) -> String {
+        format!("Servers {}", self.servers.keys().len())
+    }
+
+    pub fn get_current_server(&self) -> Option<model::ServerId> {
+        self.current_server
+    }
+
+    pub fn get_current_channels(&self) -> Option<&Vec<model::PublicChannel>> {
+        self.current_server.map(|s| self.get_server_map().get(&s).unwrap() )
+    }
+
+    pub fn get_discord(&self) -> Arc<discord::Discord> {
+        self.discord.clone()
+    }
+
+    pub fn get_server_with_names(&self) -> Vec<String> {
+        self.get_servers().into_iter().map(|s: model::Server| s.name).collect()
+    }
+
+    pub fn get_servers(&self) -> Vec<model::Server> {
+        self.servers.keys().map(|s| self.discord.get_server(*s).expect("Failed to get server")).collect()
+    }
+
+    pub fn get_server_map(&self) -> &HashMap<model::ServerId, Vec<model::PublicChannel>> {
+        &self.servers
     }
 }

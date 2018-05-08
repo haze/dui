@@ -1,3 +1,5 @@
+extern crate termion;
+extern crate tui;
 extern crate scoped_pool;
 extern crate discord;
 extern crate serde_json;
@@ -7,6 +9,7 @@ extern crate serde;
 use discord::model::{ServerId, ServerInfo, PublicChannel};
 use discord::Discord;
 mod types;
+mod ui;
 
 fn main() {
     use types::UserConfiguration;
@@ -24,13 +27,16 @@ fn main() {
         let discord = Discord::from_user_token(config.get_token()).expect("Failed to connect to Discord api");
         let servers = discord.get_servers().expect("Failed to get servers");
         let server_len = servers.len();
+
+
         let arc = Arc::new(discord);
+        let arch: types::Architecture = types::Architecture::new(arc);
         let (snd, rcv) = mpsc::channel();
 
         println!("Loading servers...");
         for serv in servers {
             let sndc = snd.clone();
-            let d = arc.clone();
+            let d = arch.get_discord();
             thread::spawn(move || {
                 let id = serv.id;
                 let servs = d.get_server_channels(id).expect("Failed to get channels");
@@ -44,5 +50,6 @@ fn main() {
             println!("got server: {}", id); // debug statement
             map.insert(id, chans);
         }
+        ui::draw_ui(arch);
     }
 }
