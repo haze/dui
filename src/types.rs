@@ -9,12 +9,15 @@ use std::error::Error;
 pub struct UserConfiguration {
 
     #[serde(default)]
+    #[serde(rename = "UserToken")]
     token: String,
 
     #[serde(default)]
+    #[serde(rename = "HomeChannel")]
     home_channel: String,
 
     #[serde(default)]
+    #[serde(rename = "HomeServer")]
     home_server: String,
 }
 
