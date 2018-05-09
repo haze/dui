@@ -8,6 +8,8 @@ extern crate serde;
 
 use discord::model::{ServerId, ServerInfo, PublicChannel};
 use discord::Discord;
+
+mod input;
 mod types;
 mod ui;
 
@@ -30,7 +32,7 @@ fn main() {
 
 
         let arc = Arc::new(discord);
-        let arch: types::Architecture = types::Architecture::new(arc);
+        let mut  arch: types::Architecture = types::Architecture::new(arc);
         let (snd, rcv) = mpsc::channel();
 
         println!("Loading servers...");
@@ -50,6 +52,9 @@ fn main() {
             println!("got server: {}", id); // debug statement
             map.insert(id, chans);
         }
+        println!("Done getting servers ({})", map.len());
+        arch.set_servers(map);
+        println!("Drawing UI...");
         ui::draw_ui(arch);
     }
 }

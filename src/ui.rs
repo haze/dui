@@ -9,6 +9,7 @@ use tui::layout::{Direction, Group, Rect, Size};
 use tui::style::{Color, Modifier, Style};
 use tui::widgets::{Block, Borders, Item, List, SelectableList, Widget};
 use tui::Terminal;
+use input;
 
 pub enum Event {
     Input(event::Key)
@@ -18,15 +19,15 @@ fn draw(t: &mut Terminal<MouseBackend>, arch: &Architecture) {
     Group::default()
         .direction(Direction::Horizontal)
         .sizes(&[Size::Percent(30), Size::Percent(70)])
-        .render(t, arch.size, |t, chunks| {
+        .render(t, arch.get_size(), |t, chunks| {
             Group::default()
                 .direction(Direction::Vertical)
                 .sizes(&[Size::Percent(30), Size::Percent(70)])
                 .render(t, &chunks[0], |t, chunks| {
                     SelectableList::default()
-                        .block(Block::default().borders(Borders::ALL).title(arch.display_servers()))
-                        .items(arch.get_servers())
-                        .select(arch.get_current_server().unwrap())
+                        .block(Block::default().borders(Borders::ALL).title(&*arch.display_servers()))
+                        .items(&arch.get_servers_for_display())
+                        .select(arch.get_current_server_index().unwrap());
                 })
         });
 }
@@ -53,19 +54,19 @@ pub fn draw_ui(arch: Architecture) {
     term.hide_cursor().unwrap();
 
     {
-        draw(&arch);
+        draw(&mut term, &arch);
     }
 
     loop {
-        let evt = rcv.unwrap();
+        let evt = rcv.recv().unwrap();
         match evt {
             Event::Input(inp) => match inp {
-                event::Key::Char('q') => {
-                    break;
-                }
+                event::Key::Char('q') => break,
+                _ => input::handle_input(&inp),
             }
         }
-        draw(&arch);
+        draw(&mut term, &arch);
     }
-
+    term.show_cursor().unwrap();
+    term.clear().unwrap();
 }
