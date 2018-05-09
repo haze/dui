@@ -52,7 +52,7 @@ fn main() {
             println!("got server: {}", id); // debug statement
             map.insert(id, chans);
         }
-        println!("Done getting servers ({})", map.len());
+                println!("Done getting servers ({})", map.len());
         arch.set_servers(map);
         println!("Drawing UI...");
         ui::draw_ui(arch);

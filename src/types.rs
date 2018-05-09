@@ -69,7 +69,8 @@ pub struct Architecture {
     server_cache: Vec<model::Server>,
     discord: Arc<discord::Discord>,
     current_server: Option<model::ServerId>,
-    size: Rect,
+    current_channel: Option<model::PublicChannel>,
+    pub size: Rect,
 }
 
 impl Architecture {
@@ -107,11 +108,16 @@ impl Architecture {
         &self.size
     }
 
+    pub fn get_chat_block_display(&self) -> String {
+        format!("{} - {}" /* add shit for notifications maybe? */, self.get_current_server_info().unwrap().name, self.get_current_channel().unwrap().name)
+    }
+
     pub fn new(discord: Arc<discord::Discord>) -> Architecture {
         Architecture {
             discord,
             servers: HashMap::new(),
             current_server: None,
+            current_channel: None,
             server_cache: Vec::new(),
             size: Rect::new(0, 0, 0, 0) // use default rect
         }
@@ -128,12 +134,39 @@ impl Architecture {
         }
     }
 
+    pub fn display_channels(&self) -> String {
+        format!("Channels [{}]", self.get_current_channels().unwrap().len())
+    }
+
     pub fn display_servers(&self) -> String {
-        format!("Servers {}", self.servers.keys().len())
+        format!("Servers [{}]", self.servers.keys().len())
     }
 
     pub fn get_current_server(&self) -> Option<model::ServerId> {
         self.current_server
+    }
+
+    pub fn get_current_server_info(&self) -> Option<&model::Server> {
+        for server in &self.server_cache {
+            if server.id == self.get_current_server().unwrap() {
+                return Some(server);
+            }
+        }
+        None
+    }
+
+    pub fn get_current_channel_index(&self) -> Option<usize> {
+        let mut ind: usize = 0;
+        let schan = self.get_current_channel().unwrap();
+        let chans = self.get_current_channels().unwrap();
+        for chan in chans {
+            if chan.name == schan.name {
+                return Some(ind)
+            } else {
+                ind += 1;
+            }
+        }
+        None
     }
 
     pub fn get_current_server_index(&self) -> Option<usize> {
@@ -153,12 +186,17 @@ impl Architecture {
         self.current_server.map(|s| self.get_server_map().get(&s).unwrap() )
     }
 
+    pub fn get_current_channel(&self) -> Option<model::PublicChannel> {
+        self.current_channel.clone()
+    }
+
     pub fn get_discord(&self) -> Arc<discord::Discord> {
         self.discord.clone()
     }
 
     pub fn select_default(&mut self) {
-        self.current_server = Some(self.get_servers()[0].id)
+        self.current_server = Some(self.get_servers()[0].id);
+        self.current_channel = Some(self.get_current_channels().unwrap()[0].clone());
     }
 
     pub fn get_servers_for_display(&self) -> Vec<String> {
@@ -166,6 +204,14 @@ impl Architecture {
         let mut names: Vec<String> = Vec::new();
         for serv in self.get_servers() {
             names.push(serv.name.clone());
+        }
+        names
+    }
+
+    pub fn get_channels_for_display(&self) -> Vec<String> {
+        let mut names: Vec<String> = Vec::new();
+        for chan in self.get_current_channels().unwrap() {
+            names.push(chan.name.clone());
         }
         names
     }
