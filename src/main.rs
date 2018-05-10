@@ -6,7 +6,7 @@ extern crate serde_json;
 #[macro_use] extern crate serde_derive;
 extern crate serde;
 
-use discord::model::{ServerId, ServerInfo, PublicChannel};
+use discord::model::{ServerId, ServerInfo, PublicChannel, ChannelType};
 use discord::Discord;
 
 mod input;
@@ -41,7 +41,11 @@ fn main() {
             let d = arch.get_discord();
             thread::spawn(move || {
                 let id = serv.id;
-                let servs = d.get_server_channels(id).expect("Failed to get channels");
+                let servs = d.get_server_channels(id)
+                    .expect("Failed to get channels").into_iter()
+                    .filter(|c| c.kind == ChannelType::Text)
+                    .collect();
+
                 sndc.send((id, servs));
             });
         }
@@ -54,7 +58,6 @@ fn main() {
         }
                 println!("Done getting servers ({})", map.len());
         arch.set_servers(map);
-        println!("Drawing UI...");
         ui::draw_ui(arch);
     }
 }

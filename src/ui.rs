@@ -20,6 +20,8 @@ fn draw(t: &mut Terminal<MouseBackend>, arch: &Architecture) {
         .direction(Direction::Horizontal)
         .sizes(&[Size::Percent(30), Size::Percent(70)])
         .render(t, arch.get_size(), |t, chunks| {
+            let white = &Style::default().fg(Color::White);
+            let channel = &arch.get_current_channel().unwrap().id;
             Group::default()
                 .direction(Direction::Vertical)
                 .sizes(&[Size::Percent(65), Size::Percent(35)])
@@ -37,6 +39,9 @@ fn draw(t: &mut Terminal<MouseBackend>, arch: &Architecture) {
                         .block(Block::default().borders(Borders::ALL).title(&*arch.display_channels()))
                         .items(&arch.get_channels_for_display())
                         .select(arch.get_current_channel_index().unwrap())
+                        .highlight_style(
+                            Style::default().fg(Color::White).modifier(Modifier::Bold),
+                        )
                         .highlight_symbol(">")
                         .render(t, &fchunks[1]);
                 });
@@ -44,13 +49,14 @@ fn draw(t: &mut Terminal<MouseBackend>, arch: &Architecture) {
                 .direction(Direction::Vertical)
                 .sizes(&[Size::Min(3), Size::Percent(10)])
                 .render(t, &chunks[1], |t, schunks| {
-                    Paragraph::default()
-                        .block(
-                            Block::default()
-                                .borders(Borders::ALL)
-                                .title(&*arch.get_chat_block_display())
-                        ).wrap(true)
-                        .text("hi anthony").render(t, &schunks[0]);
+                    List::new(arch.get_cached_chat(channel).unwrap().into_iter().map(|x| {
+                        Item::StyledData(
+                            format!("{}: {}", x.author.name, x.content),
+                            white
+                        )
+                    }))
+                        .block(Block::default().borders(Borders::ALL).title(&*arch.get_chat_block_display()))
+                        .render(t, &schunks[0]);
                     Paragraph::default()
                         .block(Block::default().borders(Borders::ALL).title("Input"))
                         .render(t, &schunks[1]);
@@ -100,7 +106,7 @@ pub fn draw_ui(mut arch: Architecture) {
         match evt {
             Event::Input(inp) => match inp {
                 event::Key::Char('q') => break,
-                _ => input::handle_input(&inp),
+                _ => input::handle_input(&mut arch, &inp),
             }
         }
         draw(&mut term, &arch);

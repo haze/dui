@@ -7,7 +7,9 @@ use std::sync::Arc;
 use std::thread;
 use discord;
 use discord::model;
+use tui::style::{Color, Style};
 use tui::layout::Rect;
+use tui::widgets::Item;
 use std::collections::HashMap;
 
 // located at ~/.duirc
@@ -70,6 +72,7 @@ pub struct Architecture {
     discord: Arc<discord::Discord>,
     current_server: Option<model::ServerId>,
     current_channel: Option<model::PublicChannel>,
+    cached_chat: HashMap<model::ChannelId, Vec<model::Message>>,
     pub size: Rect,
 }
 
@@ -112,12 +115,36 @@ impl Architecture {
         format!("{} - {}" /* add shit for notifications maybe? */, self.get_current_server_info().unwrap().name, self.get_current_channel().unwrap().name)
     }
 
+    pub fn get_cached_chat(&self, chan: &model::ChannelId) -> Option<&Vec<model::Message>> {
+        let current = &self.get_current_channel().unwrap().id;
+        for (key, val) in self.cached_chat.iter() {
+            if key == current {
+                return Some(val);
+            }
+        }
+        None
+    }
+
+    // call this when updating channels...
+    pub fn cache_chat(&mut self) {
+        let current_channel = self.get_current_channel().unwrap();
+        let current_chan_id = current_channel.id.clone();
+        let mut chat_map: &mut HashMap<model::ChannelId, Vec<model::Message>> =  &mut self.cached_chat;
+        let messages = self.discord.get_messages(current_chan_id, discord::GetMessages::MostRecent, Some(100));
+        if (messages.is_ok()) {
+            chat_map.insert(current_chan_id, messages.unwrap());
+        } else {
+            chat_map.insert(current_chan_id, Vec::new());
+        }
+    }
+
     pub fn new(discord: Arc<discord::Discord>) -> Architecture {
         Architecture {
             discord,
             servers: HashMap::new(),
             current_server: None,
             current_channel: None,
+            cached_chat: HashMap::new(),
             server_cache: Vec::new(),
             size: Rect::new(0, 0, 0, 0) // use default rect
         }
@@ -136,6 +163,46 @@ impl Architecture {
 
     pub fn display_channels(&self) -> String {
         format!("Channels [{}]", self.get_current_channels().unwrap().len())
+    }
+
+    pub fn channel_down(&mut self) {
+        let index = self.get_current_channel_index().unwrap();
+        if (index + 1) <= (self.get_current_channels().unwrap().len() - 1) {
+            let new_channel = self.get_current_channels().unwrap()[index + 1].clone();
+            self.set_channel(Some(new_channel));
+        }
+    }
+
+    pub fn set_channel(&mut self, new_channel: Option<model::PublicChannel>) {
+        self.current_channel = new_channel;
+        self.cache_chat();
+    }
+
+    pub fn channel_up(&mut self) {
+        let index = self.get_current_channel_index().unwrap();
+        if index != 0 && index - 1 >= 0 {
+            let new_channel = self.get_current_channels().unwrap()[index - 1].clone();
+            self.set_channel(Some(new_channel));
+
+        }
+    }
+
+    pub fn server_up(&mut self) {
+        let index = self.get_current_server_index().unwrap();
+        if index != 0 && index - 1 >= 0 {
+            let new_server = &self.server_cache[index - 1];
+            self.current_server = Some(new_server.id);
+        }
+        self.select_default_channel();
+    }
+
+    pub fn server_down(&mut self) {
+        let index = self.get_current_server_index().unwrap();
+        if (index + 1) <= (self.server_cache.len() - 1) {
+            let new_server = &self.server_cache[index + 1];
+            self.current_server = Some(new_server.id);
+        }
+        self.select_default_channel();
     }
 
     pub fn display_servers(&self) -> String {
@@ -196,7 +263,12 @@ impl Architecture {
 
     pub fn select_default(&mut self) {
         self.current_server = Some(self.get_servers()[0].id);
+        self.select_default_channel();
+    }
+
+    pub fn select_default_channel(&mut self) {
         self.current_channel = Some(self.get_current_channels().unwrap()[0].clone());
+        self.cache_chat();
     }
 
     pub fn get_servers_for_display(&self) -> Vec<String> {
